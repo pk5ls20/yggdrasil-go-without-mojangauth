@@ -18,6 +18,7 @@
 import React from 'react';
 import {
     Box,
+    Button,
     Collapse,
     Container,
     Fade,
@@ -28,6 +29,7 @@ import {
     IconButton,
     InputAdornment,
     InputLabel,
+    MenuItem,
     Paper,
     Radio,
     RadioGroup,
@@ -36,7 +38,6 @@ import {
 import './user.css';
 import {AppState} from './types';
 import {Delete} from '@mui/icons-material';
-import Button from '@mui/material/Button';
 import {useSnackbar} from 'notistack';
 import {FocusedShowHelperText} from './components';
 import {SubmitHandler, useForm} from 'react-hook-form';
@@ -55,14 +56,16 @@ function UploadTextureForm(props: {
 }) {
     const {appData, skinData, setSkinData} = props;
     const [submitting, setSubmitting] = React.useState(false);
-
+    // const [useMojangPremiumSkin, setuseMojangPremiumSkin] = React.useState(false);
     const {enqueueSnackbar} = useSnackbar();
-
     const fileInputElem = React.useRef<HTMLInputElement>(null);
     const [filePath, setFilePath] = React.useState('');
+    const [mojangSkinOption, setMojangSkinOption] = React.useState("0");
+    const handleMojangSkinOptionChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+        setMojangSkinOption(event.target.value as string);
+    };
     const handleFilePathChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setFilePath(event.target.value);
-
         if (skinData) {
             if (type == 'cape' && skinData.capeUrl?.startsWith('blob:')) {
                 URL.revokeObjectURL(skinData.capeUrl);
@@ -90,6 +93,9 @@ function UploadTextureForm(props: {
 
     const [url, setUrl] = React.useState('');
     const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (mojangSkinOption>"0") {
+            return;
+        }
         setUrl(event.target.value);
     };
 
@@ -110,19 +116,20 @@ function UploadTextureForm(props: {
         }
     };
 
-    const uploadTexture = (event: React.FormEvent) => {
+    const uploadTexture = async (event: React.FormEvent) => {
         event.preventDefault();
         const fileInput = fileInputElem.current;
-        if (fileInput == null) {
+        if (fileInput == null && !(mojangSkinOption>"0")) {
             console.error('#file-input-real is not a valid element');
             return;
         }
         setSubmitting(true);
-        const fileBlob = fileInput.files?.length ? fileInput.files[0] : null;
+        const fileBlob = fileInput == null ? null : (fileInput.files?.length ? fileInput.files[0] : null);
         if (filePath && fileBlob) {
             const formData = new FormData();
             formData.append('model', model);
             formData.append('file', fileBlob);
+            console.log(appData);
             axios.put(`/api/user/profile/${appData.uuid}/${type}`, formData, {
                 headers: {
                     'Authorization': 'Bearer ' + appData.accessToken
@@ -137,8 +144,23 @@ function UploadTextureForm(props: {
                     enqueueSnackbar('网络错误:' + e.message, {variant: 'error'});
                 }
             }).finally(() => setSubmitting(false));
-        } else if (url) {
-            axios.post(`/api/user/profile/${appData.uuid}/${type}`, {model, url}, {
+        } else if (url || (mojangSkinOption>"0")) {
+            let urlPayload = {
+                model: model,
+                url: url,
+                forceMojangSkin: 0,
+                username: ""
+            };
+            if (mojangSkinOption>"0") {
+                urlPayload.forceMojangSkin = parseInt(mojangSkinOption, 10);
+            }
+            if(mojangSkinOption=="2"){
+                urlPayload.username = appData.profileName;
+            }
+            if (urlPayload.url == "") {
+                urlPayload.url = "http://127.0.0.1";
+            }
+            axios.post(`/api/user/profile/${appData.uuid}/${type}`, urlPayload, {
                 headers: {
                     'Authorization': 'Bearer ' + appData.accessToken
                 }
@@ -163,7 +185,7 @@ function UploadTextureForm(props: {
                             data.slim = DEFAULT_SKINS[index].slim;
                         }
                         if (profile.textures.CAPE) {
-                           data.capeUrl = profile.textures.CAPE.url;
+                            data.capeUrl = profile.textures.CAPE.url;
                         }
                         setSkinData(data);
                     }
@@ -215,7 +237,6 @@ function UploadTextureForm(props: {
         }).finally(() => setSubmitting(false));
     };
 
-    // noinspection JSUnusedGlobalSymbols
     return (
         <>
             <section className="header">
@@ -253,25 +274,37 @@ function UploadTextureForm(props: {
                         </FormControl>
                     </Box>
                 </Fade>
-                <Collapse in={!filePath} className="url">
+                <TextField
+                    id="mojang-skin-option"
+                    select
+                    label="快速使用 Mojang 正版用户皮肤"
+                    value={mojangSkinOption}
+                    onChange={handleMojangSkinOptionChange}
+                    className="isUseMojangSkin"
+                >
+                    <MenuItem value="0">使用材质URL/本地图片</MenuItem>
+                    <MenuItem value="1">使用当前用户UUID对应的正版皮肤</MenuItem>
+                    <MenuItem value="2">使用当前用户昵称对应的正版皮肤</MenuItem>
+                </TextField>
+                <Collapse in={!filePath && !(mojangSkinOption>"0")} className="url">
                     <TextField
                         id="url-input"
                         name="url"
                         fullWidth
                         label="材质 URL"
                         variant="filled"
-                        required={!filePath}
+                        required={!filePath && !(mojangSkinOption>"0")}
                         type="url"
                         value={url}
                         onChange={handleUrlChange}
                     />
                 </Collapse>
-                <Collapse in={!url} className="file">
+                <Collapse in={!url && !(mojangSkinOption>"0")} className="file">
                     <FormControl fullWidth variant="filled" required={!url}>
                         <InputLabel htmlFor="file-input">或者选择一个图片</InputLabel>
                         <FilledInput
                             id="file-input"
-                            required={!url}
+                            required={!url && !(mojangSkinOption>"0")}
                             endAdornment={
                                 <InputAdornment position="end">
                                     <IconButton
@@ -288,7 +321,8 @@ function UploadTextureForm(props: {
                                 onClick: () => fileInputElem.current?.click()
                             }}
                         />
-                        <input id="file-input-real" type="file" name="file" hidden ref={fileInputElem} accept="image/*" value={filePath} onChange={handleFilePathChange}/>
+                        <input id="file-input-real" type="file" name="file" hidden ref={fileInputElem} accept="image/*"
+                               value={filePath} onChange={handleFilePathChange}/>
                     </FormControl>
                 </Collapse>
                 <div className="button-container">
@@ -363,10 +397,16 @@ function ChangeProfileForm(props: { appData: AppState, setAppData: React.Dispatc
                             required
                             inputProps={{
                                 minLength: '2', maxLength: 16,
-                                ...register('changeTo', {required: true, minLength: 2, pattern: /^[a-zA-Z0-9_]{1,16}$/, maxLength: 16})
+                                ...register('changeTo', {
+                                    required: true,
+                                    minLength: 2,
+                                    pattern: /^[a-zA-Z0-9_]{1,16}$/,
+                                    maxLength: 16
+                                })
                             }}
                         />
-                        <FocusedShowHelperText id="profileName-input-helper-text">字母，数字或下划线</FocusedShowHelperText>
+                        <FocusedShowHelperText
+                            id="profileName-input-helper-text">字母，数字或下划线</FocusedShowHelperText>
                     </FormControl>
                 </div>
                 <div className="button-container">
@@ -452,7 +492,8 @@ function User(props: { appData: AppState, setAppData: React.Dispatch<React.SetSt
                     <h1>简陋信息页</h1>
                 </section>
 
-                <UploadTextureForm appData={appData} setAppData={setAppData} skinData={skinData} setSkinData={setSkinData}/>
+                <UploadTextureForm appData={appData} setAppData={setAppData} skinData={skinData}
+                                   setSkinData={setSkinData}/>
 
                 {skinData && <SkinRender skinUrl={skinData.skinUrl} capeUrl={skinData.capeUrl} slim={skinData.slim}/>}
 

@@ -203,9 +203,9 @@ func (u *userServiceImpl) ChangeProfile(accessToken string, clientToken *string,
 		return err
 	}
 	if count > 0 {
-		return util.NewForbiddenOperationError("profileName exist")
+		//return util.NewForbiddenOperationError("profileName exist")
 	} else if _, err := mojangUsernameToUUID(changeTo); err == nil {
-		return util.NewForbiddenOperationError("profileName duplicate")
+		//return util.NewForbiddenOperationError("profileName duplicate")
 	}
 	if isInvalidProfileName(changeTo) {
 		return util.NewForbiddenOperationError("bad format(profileName longer than 1)")
@@ -372,6 +372,7 @@ func (u *userServiceImpl) QueryUUIDs(usernames []string) ([]model.ProfileRespons
 }
 
 func (u *userServiceImpl) QueryProfile(profileId uuid.UUID, unsigned bool, textureBaseUrl string) (map[string]interface{}, error) {
+	//两个选择，要不增加正版皮肤提取功能，要不增加强制正版皮肤覆盖功能
 	user := model.User{}
 	if err := u.db.First(&user, profileId).Error; err == nil {
 		profile, err := user.Profile()

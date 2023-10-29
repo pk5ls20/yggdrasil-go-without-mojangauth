@@ -34,6 +34,12 @@
     margin: 20px auto;
 }
 
+.isUseMojangSkin{
+    display: block;
+    width: 87%;
+    margin: 30px auto;
+}
+
 .file {
     display: flex;
     width: 87%;

@@ -5,12 +5,12 @@ LABEL "Description"="Go Yggdrasil Server Without MojangAuth"
 
 ARG TARGETOS
 ARG TARGETARCH
-RUN mkdir -p /app
-COPY "build/yggdrasil-go-without-mojangauth-${TARGETOS}-${TARGETARCH}" /app/yggdrasil-go-without-mojangauth
+RUN mkdir -p /app/data
+COPY "build/yggdrasil-go-without-mojangauth-${TARGETOS}-${TARGETARCH}" /app/data/yggdrasil-go-without-mojangauth
 
 EXPOSE 8080
 VOLUME /app/data
 COPY assets /app/data/assets/
 
 WORKDIR /app/data
-ENTRYPOINT ["/app/yggdrasil-go-without-mojangauth"]
+ENTRYPOINT ["./yggdrasil-go-without-mojangauth"]

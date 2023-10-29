@@ -18,7 +18,12 @@
 package router
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"net/http"
 	"yggdrasil-go/model"
 	"yggdrasil-go/service"
@@ -42,8 +47,10 @@ func NewTextureRouter(textureService service.TextureService) TextureRouter {
 }
 
 type SetTextureRequest struct {
-	Url   string `json:"url" binding:"required,url"`
-	Model string `json:"model" binding:"oneof=slim default"`
+	Url             string `json:"url" binding:"required,url"`
+	Model           string `json:"model" binding:"oneof=slim default"`
+	ForceMojangSkin int    `json:"forceMojangSkin" binding:"omitempty"`
+	Username        string `json:"username" binding:"omitempty"`
 }
 
 func (t *textureRouterImpl) GetTexture(c *gin.Context) {
@@ -84,6 +91,85 @@ func (t *textureRouterImpl) SetTexture(c *gin.Context) {
 		request.Model = string(model.STEVE)
 	}
 	modelType := model.ModelType(request.Model)
+	newUUID := uuid.Nil
+	//可以在这里替换皮肤url
+	if request.ForceMojangSkin == 2 {
+		url := fmt.Sprintf("https://api.mojang.com/users/profiles/minecraft/%s", request.Username)
+		result := map[string]interface{}{}
+		err := util.GetObject(url, &result)
+		if err != nil {
+			c.Status(404)
+			return
+		}
+		if _, ok := result["name"].(string); ok {
+			idStr, idOk := result["id"].(string)
+			if !idOk {
+				c.Status(404)
+				return
+			}
+			newUUID, err = uuid.Parse(idStr)
+			if err != nil {
+				c.Status(404)
+				return
+			}
+		} else {
+			c.Status(404)
+			return
+		}
+	}
+	if request.ForceMojangSkin > 0 {
+		result := map[string]interface{}{}
+		if newUUID == uuid.Nil {
+			newUUID = profileId
+		}
+		resultErr := util.GetObject(fmt.Sprintf("https://sessionserver.mojang.com/session/minecraft/profile/%s", util.UnsignedString(newUUID)), &result)
+		var yggErr *util.YggdrasilError
+		if errors.As(resultErr, &yggErr) {
+			if yggErr.Status == 204 {
+				c.Status(404)
+				return
+			}
+		}
+		if resultErr != nil {
+			util.HandleError(c, resultErr)
+			return
+		}
+		properties, ok := result["properties"].([]interface{})
+		if !ok || len(properties) == 0 {
+			util.HandleError(c, fmt.Errorf("properties not found or of incorrect type in result"))
+			return
+		}
+		for _, prop := range properties {
+			propMap, ok := prop.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if propMap["name"] == "textures" {
+				textureValue, ok := propMap["value"].(string)
+				if !ok {
+					continue
+				}
+				decodedValue, err := base64.StdEncoding.DecodeString(textureValue)
+				if err != nil {
+					continue
+				}
+				var textureData map[string]interface{}
+				err = json.Unmarshal(decodedValue, &textureData)
+				if err != nil {
+					continue
+				}
+				skinData, ok := textureData["textures"].(map[string]interface{})["SKIN"].(map[string]interface{})
+				if !ok {
+					continue
+				}
+				url, ok := skinData["url"].(string)
+				if ok {
+					request.Url = url
+					break
+				}
+			}
+		}
+	}
 	err = t.textureService.SetTexture(accessToken, profileId, request.Url, textureType, &modelType)
 	if err != nil {
 		util.HandleError(c, err)
