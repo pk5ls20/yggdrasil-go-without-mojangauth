@@ -39,7 +39,7 @@ import (
 )
 
 type UserService interface {
-	Register(username string, password string, profileName string) (*model.UserResponse, error)
+	Register(username string, password string, profileName string, userID uuid.UUID) (*model.UserResponse, error)
 	Login(username string, password string, clientToken *string, requestUser bool) (*LoginResponse, error)
 	ChangeProfile(accessToken string, clientToken *string, changeTo string) error
 	Refresh(accessToken string, clientToken *string, requestUser bool, selectedProfile *model.ProfileResponse) (*LoginResponse, error)
@@ -96,7 +96,7 @@ func NewUserService(tokenService TokenService, db *gorm.DB) UserService {
 	return &userService
 }
 
-func (u *userServiceImpl) Register(username string, password string, profileName string) (*model.UserResponse, error) {
+func (u *userServiceImpl) Register(username string, password string, profileName string, userID uuid.UUID) (*model.UserResponse, error) {
 	var count int64
 	if err := u.db.Table("users").Where("email = ?", username).Count(&count).Error; err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (u *userServiceImpl) Register(username string, password string, profileName
 	if count > 0 {
 		return nil, util.NewForbiddenOperationError("profileName exist")
 	} else if _, err := mojangUsernameToUUID(profileName); err == nil {
-		return nil, util.NewForbiddenOperationError("profileName duplicate")
+		//return nil, util.NewForbiddenOperationError("profileName duplicate")
 	}
 	matched, err := regexp.MatchString("^(\\w){3,}(\\.\\w+)*@(\\w){2,}((\\.\\w+)+)$", username)
 	if err != nil {
@@ -124,7 +124,7 @@ func (u *userServiceImpl) Register(username string, password string, profileName
 		return nil, err
 	}
 	user := model.User{
-		ID:       uuid.New(),
+		ID:       userID,
 		Email:    username,
 		Password: string(hashedPass),
 	}

@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v0.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -33,7 +34,7 @@ jobs:
           xgo_version: latest
           go_version: 1.19
           dest: build
-          prefix: yggdrasil
+          prefix: yggdrasil-go-without-mojangauth
           targets: windows/amd64,linux/amd64,linux/arm64,darwin/amd64,darwin/arm64
           v: true
           x: false
@@ -45,14 +46,14 @@ jobs:
       - name: Create ZIP archive
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          cp -v ./config_example.ini ./assets ./build/ || exit 1
+          cp -v -r ./config_example.ini ./assets ./build/ || exit 1
           pushd build || exit 1
-          ls -1 yggdrasil-* | while read LINE; do
+          ls -1 yggdrasil-go-without-mojangauth-* | while read LINE; do
           PREFIX="${LINE%.*}"
           SUFFIX="$(echo "$LINE" | grep -osE '\.\w+' || printf '')"
-          cp -v "$LINE" "yggdrasil$SUFFIX"
+          cp -v "$LINE" "yggdrasil-go-without-mojangauth$SUFFIX"
           FILE="../$PREFIX.zip"
-          zip -9v "$FILE" "yggdrasil$SUFFIX" *.ini assets
+          zip -9v -r "$FILE" "yggdrasil-go-without-mojangauth$SUFFIX" *.ini assets/*
           DGST="$FILE.dgst"
           openssl dgst -md5    "$FILE" | sed 's/([^)]*)//g' >>"$DGST"
           openssl dgst -sha1   "$FILE" | sed 's/([^)]*)//g' >>"$DGST"
@@ -65,10 +66,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          prerelease: true
-          body: For test only
+          prerelease: false
+          body: release
           name: ${{ github.ref_name }} Pre Release
-          files: yggdrasil*.zip*
+          files: yggdrasil-go-without-mojangauth*.zip*
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -89,4 +90,4 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: gardel/yggdrasil-go:latest, gardel/yggdrasil-go:${{ github.ref_name }}
+          tags: pk5ls20/yggdrasil-go-without-mojangauth:latest, pk5ls20/yggdrasil-go-without-mojangauth:${{ github.ref_name }}

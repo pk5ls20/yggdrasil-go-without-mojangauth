@@ -19,6 +19,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"net/http"
 	"strings"
 	"yggdrasil-go/model"
@@ -54,9 +55,10 @@ func NewUserRouter(userService service.UserService, skinRootUrl string) UserRout
 }
 
 type RegRequest struct {
-	Username    string `json:"username" binding:"required,email"`
-	Password    string `json:"password" binding:"required"`
-	ProfileName string `json:"profileName" binding:"required"`
+	Username    string    `json:"username" binding:"required,email"`
+	Password    string    `json:"password" binding:"required"`
+	ProfileName string    `json:"profileName" binding:"required"`
+	UUID        uuid.UUID `json:"uuid,omitempty"`
 }
 
 type MinecraftAgent struct {
@@ -116,7 +118,10 @@ func (u *userRouterImpl) Register(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusForbidden, util.NewForbiddenOperationError(err.Error()))
 		return
 	}
-	response, err := u.userService.Register(request.Username, request.Password, request.ProfileName)
+	if request.UUID == uuid.Nil {
+		request.UUID = uuid.New()
+	}
+	response, err := u.userService.Register(request.Username, request.Password, request.ProfileName, request.UUID)
 	if err != nil {
 		util.HandleError(c, err)
 		return

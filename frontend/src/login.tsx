@@ -29,36 +29,37 @@ import {
     Paper,
     TextField
 } from '@mui/material';
-import {Visibility, VisibilityOff} from '@mui/icons-material';
-import {AppState} from './types';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { AppState } from './types';
 import './login.css';
-import {SubmitHandler, useForm} from 'react-hook-form';
+import { SubmitHandler, useForm } from 'react-hook-form';
 import axios from 'axios';
-import {useSnackbar} from 'notistack';
-import {FocusedShowHelperText} from './components';
+import { useSnackbar } from 'notistack';
+import { FocusedShowHelperText } from './components';
 
 type Inputs = {
     username: string,
     profileName: string,
-    password: string
+    password: string,
+    specifiedUUID?: string
 };
 
 function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetStateAction<AppState>> }) {
-    const {appData, setAppData} = props;
-    const {enqueueSnackbar} = useSnackbar();
-    const {register, handleSubmit, formState: {errors}} = useForm<Inputs>();
+    const { appData, setAppData } = props;
+    const { enqueueSnackbar } = useSnackbar();
+    const { register, handleSubmit, formState: { errors } } = useForm<Inputs>();
     const [submitting, setSubmitting] = React.useState(false);
     const onSubmit: SubmitHandler<Inputs> = data => {
-        setSubmitting(true)
+        setSubmitting(true);
         if (appData.login) {
             axios.post('/authserver/authenticate', {
                 username: data.username,
                 password: data.password
             })
                 .then(response => {
-                    let data = response.data
+                    let data = response.data;
                     if (data && data.accessToken) {
-                        enqueueSnackbar("登录成功，accessToken:" + data.accessToken, {variant: 'success'});
+                        enqueueSnackbar("登录成功，accessToken:" + data.accessToken, { variant: 'success' });
                         setAppData({
                             ...appData,
                             accessToken: data.accessToken,
@@ -68,56 +69,68 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
                             uuid: data.selectedProfile?.id
                         });
                     } else {
-                        enqueueSnackbar(data && data.errorMessage ? "登录失败: " + data.errorMessage: "登陆失败", {variant: 'error'});
+                        enqueueSnackbar(data && data.errorMessage ? "登录失败: " + data.errorMessage : "登录失败", { variant: 'error' });
                     }
                 })
                 .catch(e => {
                     const response = e.response;
                     if (response && response.status == 403) {
-                        enqueueSnackbar('登录失败: ' + response.data.errorMessage, {variant: 'error'});
+                        enqueueSnackbar('登录失败: ' + response.data.errorMessage, { variant: 'error' });
                     } else {
-                        enqueueSnackbar('网络错误:' + e.message, {variant: 'error'});
+                        enqueueSnackbar('网络错误:' + e.message, { variant: 'error' });
                     }
                 })
-                .finally(() => setSubmitting(false))
+                .finally(() => setSubmitting(false));
         } else {
-            axios.post('/authserver/register', {
+            type RegisterPayload = {
+                username: string,
+                password: string,
+                profileName: string,
+                uuid?: string
+            };
+            let postPayload: RegisterPayload = {
                 username: data.username,
                 password: data.password,
                 profileName: data.profileName
-            })
+            };
+
+            if (data.specifiedUUID) {
+                postPayload.uuid = data.specifiedUUID;
+            } else {
+                enqueueSnackbar('使用随机的uuid！', { variant: 'info' });
+            }
+
+            axios.post('/authserver/register', postPayload)
                 .then(response => {
-                    let data = response.data
+                    let data = response.data;
                     if (data && data.id) {
-                        enqueueSnackbar("注册成功，uuid:" + data.id, {variant: 'success'});
-                        setLogin(true)
+                        enqueueSnackbar("注册成功，uuid:" + data.id, { variant: 'success' });
+                        setLogin(true);
                     } else {
-                        enqueueSnackbar(data && data.errorMessage ? "注册失败: " + data.errorMessage: "注册失败", {variant: 'error'});
+                        enqueueSnackbar(data && data.errorMessage ? "注册失败: " + data.errorMessage : "注册失败", { variant: 'error' });
                     }
                 })
                 .catch(e => {
                     const response = e.response;
                     if (response && response.data) {
                         let errorMessage = response.data.errorMessage;
-                        let message =  "注册失败: " + errorMessage;
+                        let message = "注册失败: " + errorMessage;
                         if (errorMessage === "profileName exist") {
                             message = "注册失败: 角色名已存在";
                         } else if (errorMessage === "profileName duplicate") {
                             message = "注册失败: 角色名与正版用户冲突";
                         }
-                        enqueueSnackbar(message, {variant: 'error'});
+                        enqueueSnackbar(message, { variant: 'error' });
                     } else {
-                        enqueueSnackbar('网络错误:' + e.message, {variant: 'error'});
+                        enqueueSnackbar('网络错误:' + e.message, { variant: 'error' });
                     }
                 })
-                .finally(() => setSubmitting(false))
+                .finally(() => setSubmitting(false));
         }
     };
 
     const [showPassword, setShowPassword] = React.useState(false);
-
     const handleClickShowPassword = () => setShowPassword((show) => !show);
-
     const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
     };
@@ -128,6 +141,8 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
             login
         };
     });
+
+    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 
     return (
         <Container maxWidth={'sm'}>
@@ -147,7 +162,7 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
                             error={errors.username && true}
                             type='email'
                             inputProps={{
-                                ...register('username', {required: true})
+                                ...register('username', { required: true })
                             }}
                         />
                     </div>
@@ -160,10 +175,23 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
                                 required={!appData.login}
                                 inputProps={appData.login ? {} : {
                                     minLength: '2', maxLength: 16,
-                                    ...register('profileName', {required: true, minLength: 2, pattern: /^[a-zA-Z0-9_]{1,16}$/, maxLength: 16})
+                                    ...register('profileName', { required: true, minLength: 2, pattern: /^[a-zA-Z0-9_]{1,16}$/, maxLength: 16 })
                                 }}
                             />
                             <FocusedShowHelperText id="profileName-input-helper-text">字母，数字或下划线</FocusedShowHelperText>
+                        </FormControl>
+                    </Collapse>
+                    <Collapse in={!appData.login} className='specifiedUUID'>
+                        <FormControl fullWidth variant="filled">
+                            <InputLabel htmlFor="specifiedUUID-input">指定uuid</InputLabel>
+                            <FilledInput
+                                id="specifiedUUID-input"
+                                name="specifiedUUID"
+                                inputProps={{
+                                    ...register('specifiedUUID', { pattern: uuidPattern })
+                                }}
+                            />
+                            <FocusedShowHelperText id="specifiedUUID-input-helper-text">指定的UUID（标准格式）</FocusedShowHelperText>
                         </FormControl>
                     </Collapse>
                     <div className='password'>
@@ -180,22 +208,24 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
                                             aria-label="显示密码"
                                             onClick={handleClickShowPassword}
                                             onMouseDown={handleMouseDownPassword}
-                                            edge="end">
-                                            {showPassword ? <VisibilityOff/> : <Visibility/>}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
                                         </IconButton>
                                     </InputAdornment>
                                 }
                                 inputProps={{
-                                    minLength: '6',
-                                    ...register('password', {required: true, minLength: 6})
+                                    ...register('password', { required: true, minLength: 6, maxLength: 128 })
                                 }}
                             />
-                            <FocusedShowHelperText id="password-input-helper-text">警告: 暂无重置密码接口，请妥善保管密码</FocusedShowHelperText>
+                            <FocusedShowHelperText id="password-input-helper-text">最少6个字符</FocusedShowHelperText>
                         </FormControl>
                     </div>
-                    <div className='button-container'>
-                        <Button variant='contained' onClick={() => setLogin(!appData.login)} disabled={submitting}>{appData.login ? '注册' : '已有帐号登录'}</Button>
-                        <Button variant='contained' type='submit' disabled={submitting}>{appData.login ? '登录' : '注册'}</Button>
+                    <div className='actions'>
+                        <Button disabled={submitting} type="submit" variant="contained" color="primary" fullWidth>{appData.login ? '登录' : '注册'}</Button>
+                    </div>
+                    <div className="switch">
+                        <Button color="primary" onClick={() => setLogin(!appData.login)}>{appData.login ? '切换到注册' : '切换到登录'}</Button>
                     </div>
                 </Box>
             </Paper>
@@ -204,3 +234,4 @@ function Login(props: { appData: AppState, setAppData: React.Dispatch<React.SetS
 }
 
 export default Login;
+

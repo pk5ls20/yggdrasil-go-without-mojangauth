@@ -9,12 +9,13 @@
 + 支持使用在线账号（正版账号）登录，起到透明代理的功能。
 
 ## 用途
+“你的世界” - 可以直接创造严格同时符合指定uuid和用户名的用户
 
-用于服务器管理员调试和测试时使用小号登录而不必关闭在线验证 (online-mode)。
+~~用于服务器管理员调试和测试时使用小号登录而不必关闭在线验证 (online-mode)。~~
 
-禁止使玩家绕过在线验证登录服务器而不必购买 Minecraft。
+~~禁止使玩家绕过在线验证登录服务器而不必购买 Minecraft。~~
 
-禁止其他违反 [EULA](https://account.mojang.com/documents/minecraft_eula) 的行为。
+~~禁止其他违反 [EULA](https://account.mojang.com/documents/minecraft_eula) 的行为。~~
 
 ## 用法
 
@@ -31,5 +32,5 @@
 使用 docker 快速上手：
 
 ```shell
-docker run -d --name yggdrasil-go -v $(pwd)/data:/app/data -p 8080:8080 gardel/yggdrasil-go:latest
+docker run -d --name yggdrasil-go-without-mojangauth -v $(pwd)/data:/app/data -p 8080:8080 pk5ls20/yggdrasil-go-without-mojangauth:latest
 ```
